@@ -1,0 +1,47 @@
+name: Collector
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub Actions 的 cron 用 UTC
+    - cron: "0 */12 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collector-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  run-collector:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run collector
+        run: go run . -sort
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add vmess_iran.txt vless_iran.txt trojan_iran.txt ss_iran.txt mixed_iran.txt
+
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+
+          git commit -m "chore: update collected configs"
+          git push
